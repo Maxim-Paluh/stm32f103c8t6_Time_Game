@@ -1,0 +1,60 @@
+//------------------------------------------------------------------------------------------Animation.c
+/*
+typedef struct {
+    const uint8_t (*frames)[4]; // кадри анімації
+    uint8_t frameCount;
+    uint8_t currentIndex;
+    uint32_t lastMillis;
+    uint16_t delay;
+    int16_t speedStep; // для прискорення/сповільнення
+    uint8_t countRepet;
+    uint16_t currentRepet;
+    bool active;
+} Animation;
+void Animate(Animation* anim)
+{
+    if (!anim->active) return;
+
+    if (Millis - anim->lastMillis >= anim->delay)
+    {
+        anim->lastMillis = Millis;
+
+        const uint8_t* f = anim->frames[anim->currentIndex];
+        ledprintt(f[0], f[1], f[2], f[3]);
+
+        anim->currentIndex++;
+
+        if (anim->currentIndex >= anim->frameCount)
+        {
+          anim->currentIndex = 0;
+          anim->currentRepet++;
+          if(anim->currentRepet< anim->countRepet)
+          {
+            anim->delay += anim->speedStep; // нарощуємо/зменшуємо паузу
+          }
+          else 
+          {
+            anim->currentRepet = 0;
+            anim->active = false;
+          }
+        }
+    }
+}
+*/
+
+//-------------------------------------------------------------------------------------------led.c
+/*
+volatile uint32_t* CCR_primary[3] = { &TIM1->CCR3, &TIM1->CCR1, &TIM1->CCR2 }; 
+volatile uint32_t* CCR_secondary[3] = { &TIM1->CCR1, &TIM1->CCR2, &TIM1->CCR3 };
+void segchar (void) 
+{ 
+  SET_BIT(GPIOB->ODR, 0xFF00);
+  *CCR_primary[digit]   = 1999; 
+  *CCR_secondary[digit] = 0;
+  MODIFY_REG(GPIOB->ODR, 0xFF00, R[digit]<<8);
+
+digit++; 
+if(digit>2) 
+digit =0; 
+} 
+*/
