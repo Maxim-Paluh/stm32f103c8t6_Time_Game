@@ -255,10 +255,8 @@ int main()
         ledprinttime(&timeResult);  // показати час
       else
         ledprintt(0xFF, 0xFF, 0xFF, 0xFF); // "очистити" індикатор
-
-      uint32_t timeout = timeResult.IsWin ? 300000 : 30000; // якщо виграв то чекаємо 5 хвилин, якщо програв то чекаємо 30 секунд
       
-      if (Millis - lastMillis_WaitMenu >= timeout)
+      if (Millis - lastMillis_WaitMenu >= (timeResult.IsWin ? 300000 : 30000)) // якщо виграв то чекаємо 5 хвилин, якщо програв то чекаємо 30 секунд
       {
         lastMillis_WaitMenu = Millis;
         status = 0;
