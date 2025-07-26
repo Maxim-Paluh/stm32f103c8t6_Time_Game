@@ -13,7 +13,7 @@ void segchar (void)
   SET_BIT(GPIOB->ODR, 0xFF00);
 
   *CCR_secondary[digit] = 0;
-  *CCR_primary[digit]   = config.brightness;
+  *CCR_primary[digit]   = config.Brightness;
   
   MODIFY_REG(GPIOB->ODR, 0xFF00, R[digit]<<8);
   

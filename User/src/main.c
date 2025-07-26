@@ -150,11 +150,17 @@ void Init(void){
   TIM3_Init();
   TIM4_Init();
 }
-
+void GetResult(Time* timeGame, Time* timeResult);
 uint8_t status = 0;
-Time time = {
+Time timeGame = {
 .Second =0,
-.partSecond =0
+.partSecond =0,
+.IsWin = false
+};
+Time timeResult = {
+.Second =0,
+.partSecond =0,
+.IsWin = false
 };
 
 // анімація
@@ -165,9 +171,10 @@ Animation a2Up =        { anim2, 8, 0,  0, 200, -10, 10, 0, true, 0}; // при�
 Animation a3Down =      { anim3, 12, 0, 0, 100,  10, 10, 0, true, 0}; // затухаюча
 Animation a3DUp =       { anim3, 12, 0, 0, 200, -10, 10, 0, true, 0}; // прискорююча
 
-uint32_t lastMillis = 0;                //короткі затримки для встановленя частоти оновлення, або частоти блимання
-uint32_t lastMillisWaitMenu = 0;        //довгі затримки для переходу між режимами при довгій бездіяльності
-volatile uint32_t debounceMillis = 0;   // від брязкоду
+volatile uint32_t lastMillis_LimitFPS = 0;              //для обмеження частоти оновлення цифр при грі
+volatile uint32_t lastMillis_Blink = 0;                 //для блимання цифр при програші
+volatile uint32_t lastMillis_WaitMenu = 0;              //довгі затримки для переходу між режимами при довгій бездіяльності
+volatile uint32_t lastMillis_debounce = 0;              // від брязкоду
 
 bool blinkState = true; // змінна котра треба для миготіння якщо гравець програв
 
@@ -178,10 +185,8 @@ int main()
   {
     switch (status)
     {
-      // ОЧІКУВАННЯ початку гри або переходу в налаштування 
-      // якщо довго нічого не відбувається то перехів д режим сну
-    case 0: 
-      if(a1Up.active)
+    case 0:                             // ОЧІКУВАННЯ початку гри або переходу в налаштування 
+      if(a1Up.active)                   // якщо довго нічого не відбувається то перехів д режим сну
         Animate(&a1Up);
       else if(a1Down.active)
         Animate(&a1Down);
@@ -214,63 +219,82 @@ int main()
         StopMelody();
       
       break;
-      // ГРА, бачимо таймер з налічуваними секундами і інкрементуємо його
-    case 1: 
-      time.partSecond = TIM3->CNT;
-      if (time.partSecond >= 10000)
+    case 1:                             // ГРА, бачимо таймер з налічуваними секундами і інкрементуємо його
+      timeGame.partSecond = TIM3->CNT;
+      if (timeGame.partSecond >= 10000)
       {
         TIM3->CNT = 0;
-        time.Second++;
+        timeGame.Second++;
       }
-      if(time.Second>=10)
+      if(timeGame.Second>=30) // автовиграш при >=10, або стандартно 30 секунд якщо користувач вирішив не грати.
       {
-        time.partSecond = TIM3->CNT;
-        lastMillisWaitMenu = Millis;
+        timeGame.partSecond = TIM3->CNT;
+        lastMillis_WaitMenu = Millis;
+        GetResult(&timeGame, &timeResult);
         status = 2;
       }
-      if(Millis - lastMillis >30)
+      if(Millis - lastMillis_LimitFPS >30)
       {
-        lastMillis = Millis;
-        ledprinttime(&time); // Виводимо секунди на дисплей
+        lastMillis_LimitFPS = Millis;
+        ledprinttime(&timeGame); // Виводимо секунди на дисплей
       }
-      
       break;
-      // РЕЗУЛЬТАТ, займер зупиняється і виводиться час, гравець сам бачить чи виграв чи ні, якщо виграв зіграємо мелодію (реалізукти потім)
-      //через деякий час переходимо в режим очікування якщо користувач не натисне кнопку для нової гри
-    case 2:   
-      if(time.Second==10  && time.partSecond==0)
+    case 2:                             // РЕЗУЛЬТАТ, займер зупиняється і виводиться час, гравець сам бачить чи виграв чи ні, якщо виграв зіграємо мелодію (реалізукти потім)
+      if (timeResult.IsWin)                   // через деякий час переходимо в режим очікування якщо користувач не натисне кнопку для нової гри
       {
-        if(Millis - lastMillisWaitMenu >=18000)
-          StopMelody();
-        else
-          PlayMelody();
         blinkState = true;
+        (Millis - lastMillis_WaitMenu >= 18000) ? StopMelody() : PlayMelody();
       }
-      else 
-      {
-        if (Millis - lastMillis >= (blinkState ? 800 : 200))
+      else
+        if (Millis - lastMillis_Blink >= (blinkState ? 800 : 200))
         {
-          lastMillis = Millis;
+          lastMillis_Blink = Millis;
           blinkState = !blinkState;
         }
-      }
-      
       if (blinkState)
-        ledprinttime(&time);  // показати час
+        ledprinttime(&timeResult);  // показати час
       else
         ledprintt(0xFF, 0xFF, 0xFF, 0xFF); // "очистити" індикатор
-               
-      if(Millis - lastMillisWaitMenu >=30000)
+
+      uint32_t timeout = timeResult.IsWin ? 300000 : 30000; // якщо виграв то чекаємо 5 хвилин, якщо програв то чекаємо 30 секунд
+      
+      if (Millis - lastMillis_WaitMenu >= timeout)
       {
-        lastMillisWaitMenu = Millis;
+        lastMillis_WaitMenu = Millis;
         status = 0;
       }
       break;
-      // НАЛАШУТВАННЯ яскравості і складності гри (сюди можна потрапити лише з режиму очікування або результату і тут своє меню )
-    case 3: 
+    case 3:                             // НАЛАШУТВАННЯ яскравості і складності гри (сюди можна потрапити лише з режиму очікування або результату і тут своє меню )
       break;
     }
   } 
+}
+
+void GetResult(Time* timeGame, Time* timeResult)
+{
+  timeResult->IsWin = false;
+  timeResult->Second = timeGame->Second;
+  timeResult->partSecond = timeGame->partSecond;
+  
+  if(timeResult->Second!=3)
+  {
+    return;
+  }
+  else
+  {
+     uint16_t mask = (1 << (config.Difficulty)) - 1;
+     uint16_t temp_partSecond = timeResult->partSecond & ~mask;
+     if(temp_partSecond == 0)
+     {
+       timeResult->partSecond = 0;
+       timeResult->IsWin = true;
+       return;
+     }
+     else {
+        timeResult->IsWin = false;
+        return;
+     }   
+  }
 }
 
 void EXTI3_IRQHandler(void)
@@ -280,17 +304,16 @@ void EXTI3_IRQHandler(void)
     SET_BIT(EXTI->PR, EXTI_PR_PR3);
     
     uint32_t now = Millis;
-    if((now - debounceMillis > 300))
+    if((now - lastMillis_debounce > 300))
     {
-      debounceMillis = now;
+      lastMillis_debounce = now;
       
       switch (status)
       {
-      case 0: time.Second=0; time.partSecond=0; TIM3->CNT = 0;          status = 1; break;
-      case 1: lastMillisWaitMenu = Millis;                              status = 2; break;
-      case 2: lastMillisWaitMenu = Millis;                              status = 0; break;
-      //ігноруємо в цей режим потрапляємо іншою кнопкою і інших режимів
-      case 3: break;
+      case 0: timeGame.Second=0; timeGame.partSecond=0; TIM3->CNT = 0;                  status = 1;    break;
+      case 1: lastMillis_WaitMenu = Millis; GetResult(&timeGame, &timeResult);          status = 2;    break;
+      case 2: lastMillis_WaitMenu = Millis;                                             status = 0;    break;
+      case 3:                                                                           break;  //ігноруємо в цей режим потрапляємо іншою кнопкою і інших режимів                                                                
       }
       
     }
