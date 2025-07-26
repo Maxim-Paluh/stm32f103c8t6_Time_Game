@@ -56,21 +56,21 @@ void Animate(Animation* anim)
         {
           anim->currentIndex = 0;
           anim->currentRepet++;
-          if(anim->currentRepet< anim->countRepet)
+          if(anim->currentRepet < anim->countRepet)
           {
             anim->delay += anim->speedStep; // нарощуємо/зменшуємо паузу
           }
           else 
           {
-            if(anim->endPausa==0)
+            if(anim->endPausa)
             {
               anim->currentIndex = anim->frameCount - 1;
-              anim->endPausa = 1;
+              anim->endPausa = false;
             }
             else
             {
               anim->active = false;
-              anim->endPausa = 0;
+              anim->endPausa = true;
               anim->currentRepet = 0;
               return;
             }

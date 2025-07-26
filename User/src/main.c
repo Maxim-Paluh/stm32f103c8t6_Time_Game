@@ -164,12 +164,12 @@ Time timeResult = {
 };
 
 // анімація
-Animation a1Down =      { anim1, 6, 0,  0, 100,  10, 10, 0, true, 0}; // затухаюча
-Animation a1Up =        { anim1, 6, 0,  0, 200, -10, 10, 0, true, 0}; // прискорююча
-Animation a2Down=       { anim2, 8, 0,  0, 100,  10, 10, 0, true, 0}; // затухаюча
-Animation a2Up =        { anim2, 8, 0,  0, 200, -10, 10, 0, true, 0}; // прискорююча
-Animation a3Down =      { anim3, 12, 0, 0, 100,  10, 10, 0, true, 0}; // затухаюча
-Animation a3DUp =       { anim3, 12, 0, 0, 200, -10, 10, 0, true, 0}; // прискорююча
+Animation a1Down =      { anim1, 6, 0,  0, 100,  10, 10, 0, true, true}; // затухаюча
+Animation a1Up =        { anim1, 6, 0,  0, 200, -10, 10, 0, true, true}; // прискорююча
+Animation a2Down=       { anim2, 8, 0,  0, 100,  10, 10, 0, true, true}; // затухаюча
+Animation a2Up =        { anim2, 8, 0,  0, 200, -10, 10, 0, true, true}; // прискорююча
+Animation a3Down =      { anim3, 12, 0, 0, 100,  10, 10, 0, true, true}; // затухаюча
+Animation a3DUp =       { anim3, 12, 0, 0, 200, -10, 10, 0, true, true}; // прискорююча
 
 volatile uint32_t lastMillis_LimitFPS = 0;              //для обмеження частоти оновлення цифр при грі
 volatile uint32_t lastMillis_Blink = 0;                 //для блимання цифр при програші
@@ -240,7 +240,7 @@ int main()
       }
       break;
     case 2:                             // РЕЗУЛЬТАТ, займер зупиняється і виводиться час, гравець сам бачить чи виграв чи ні, якщо виграв зіграємо мелодію (реалізукти потім)
-      if (timeResult.IsWin)                   // через деякий час переходимо в режим очікування якщо користувач не натисне кнопку для нової гри
+      if (timeResult.IsWin)             // через деякий час переходимо в режим очікування якщо користувач не натисне кнопку для нової гри
       {
         blinkState = true;
         (Millis - lastMillis_WaitMenu >= 18000) ? StopMelody() : PlayMelody();
