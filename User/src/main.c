@@ -306,14 +306,16 @@ void GetResult(Time* timeGame, Time* timeResult)
   {
      uint16_t mask = (1 << (config.Difficulty)) - 1;
      uint16_t temp_partSecond = timeResult->partSecond & ~mask;
-     if(temp_partSecond == 0)
+     if(temp_partSecond == 0) // перемога
      {
        timeResult->partSecond = 0;
        timeResult->IsWin = true;
        return;
      }
-     else {
-        timeResult->IsWin = false;
+     else                     // поразка
+     {
+        if(timeResult->partSecond < 100) // якщо кількість тактів менша 100 то буде показувати поразку при 10:00 на таймері, тому краще зробити 10:01 щоб не було питань у клієнта, тут все чесно
+          timeResult->partSecond = 100;
         return;
      }   
   }
