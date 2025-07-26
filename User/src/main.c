@@ -302,7 +302,7 @@ void EXTI3_IRQHandler(void)
     SET_BIT(EXTI->PR, EXTI_PR_PR3);
     
     uint32_t now = Millis;
-    if((now - lastMillis_debounce > 300))
+    if((now - lastMillis_debounce > 150))
     {
       lastMillis_debounce = now;
       
