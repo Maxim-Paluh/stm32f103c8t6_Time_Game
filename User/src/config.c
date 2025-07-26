@@ -28,8 +28,10 @@ Notes:
 
 
 Config config = {
-    .Brightness=0,
-    .Difficulty=0
+    .Brightness =     0,
+    .Difficulty =     0,
+    .AnimationChar =  1,
+    .AnimationPoint = 2
 };
 
 static void Flash_Unlock(void) {

@@ -42,36 +42,39 @@ const uint8_t anim3[][4] = {
 void Animate(Animation* anim)
 {
     if (!anim->active) return;
+    
+    if(anim->repetCurrent == 0)
+      anim->delayCurrent = anim->delayBase;
 
-    if (Millis - anim->lastMillis >= anim->delay)
+    if (Millis - anim->lastMillis >= anim->delayCurrent)
     {
         anim->lastMillis = Millis;
 
-        const uint8_t* f = anim->frames[anim->currentIndex];
+        const uint8_t* f = anim->frames[anim->frameCurrent];
         ledprintt(f[0], f[1], f[2], f[3]);
 
-        anim->currentIndex++;
+        anim->frameCurrent++;
 
-        if (anim->currentIndex >= anim->frameCount)
+        if (anim->frameCurrent >= anim->frameCount)
         {
-          anim->currentIndex = 0;
-          anim->currentRepet++;
-          if(anim->currentRepet < anim->countRepet)
+          anim->frameCurrent = 0;
+          anim->repetCurrent++;
+          if(anim->repetCurrent < anim->repetCount)
           {
-            anim->delay += anim->speedStep; // нарощуємо/зменшуємо паузу
+            anim->delayCurrent += anim->delayStep; // нарощуємо/зменшуємо паузу
           }
           else 
           {
             if(anim->endPausa)
             {
-              anim->currentIndex = anim->frameCount - 1;
+              anim->frameCurrent = anim->frameCount - 1;
               anim->endPausa = false;
             }
             else
             {
               anim->active = false;
               anim->endPausa = true;
-              anim->currentRepet = 0;
+              anim->repetCurrent = 0;
               return;
             }
           }

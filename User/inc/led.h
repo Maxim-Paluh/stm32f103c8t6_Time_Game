@@ -6,6 +6,8 @@
 #include "stm32f1xx.h"
 #include "time.h"
 //--------------------------------------
+extern uint8_t R[4];
+//--------------------------------------
 void segchar (void);
 void ledprint(uint16_t number);
 void ledprinttime(Time *time);

@@ -9,6 +9,8 @@ typedef struct {
     uint16_t Brightness;    
     uint16_t Difficulty;
     uint32_t signature; // маркер автентичності наприклад 0xA5A5A5A5
+    uint16_t AnimationChar;
+    uint16_t AnimationPoint;
 } Config;
 
 extern Config config;

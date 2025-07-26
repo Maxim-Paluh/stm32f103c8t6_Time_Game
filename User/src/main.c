@@ -164,12 +164,12 @@ Time timeResult = {
 };
 
 // анімація
-Animation a1Down =      { anim1, 6, 0,  0, 100,  10, 10, 0, true, true}; // затухаюча
-Animation a1Up =        { anim1, 6, 0,  0, 200, -10, 10, 0, true, true}; // прискорююча
-Animation a2Down=       { anim2, 8, 0,  0, 100,  10, 10, 0, true, true}; // затухаюча
-Animation a2Up =        { anim2, 8, 0,  0, 200, -10, 10, 0, true, true}; // прискорююча
-Animation a3Down =      { anim3, 12, 0, 0, 100,  10, 10, 0, true, true}; // затухаюча
-Animation a3DUp =       { anim3, 12, 0, 0, 200, -10, 10, 0, true, true}; // прискорююча
+Animation a1Down = { .frames = anim1, .frameCount = 6,  .frameCurrent = 0, .lastMillis = 0, .delayBase = 100, .repetCount = 10, .repetCurrent = 0, .delayStep =  10, .active = true, .endPausa = true}; // затухаюча
+Animation a1Up =   { .frames = anim1, .frameCount = 6,  .frameCurrent = 0, .lastMillis = 0, .delayBase = 200, .repetCount = 10, .repetCurrent = 0, .delayStep = -10, .active = true, .endPausa = true}; // прискорююча
+Animation a2Down=  { .frames = anim2, .frameCount = 8,  .frameCurrent = 0, .lastMillis = 0, .delayBase = 100, .repetCount = 10, .repetCurrent = 0, .delayStep =  10, .active = true, .endPausa = true}; // затухаюча
+Animation a2Up =   { .frames = anim2, .frameCount = 8,  .frameCurrent = 0, .lastMillis = 0, .delayBase = 200, .repetCount = 10, .repetCurrent = 0, .delayStep = -10, .active = true, .endPausa = true}; // прискорююча
+Animation a3Down = { .frames = anim3, .frameCount = 12, .frameCurrent = 0, .lastMillis = 0, .delayBase = 50,  .repetCount = 10, .repetCurrent = 0, .delayStep =  10, .active = true, .endPausa = true}; // затухаюча
+Animation a3DUp =  { .frames = anim3, .frameCount = 12, .frameCurrent = 0, .lastMillis = 0, .delayBase = 150, .repetCount = 10, .repetCurrent = 0, .delayStep = -10, .active = true, .endPausa = true}; // прискорююча
 
 volatile uint32_t lastMillis_LimitFPS = 0;              //для обмеження частоти оновлення цифр при грі
 volatile uint32_t lastMillis_Blink = 0;                 //для блимання цифр при програші
@@ -186,36 +186,60 @@ int main()
     switch (status)
     {
     case 0:                             // ОЧІКУВАННЯ початку гри або переходу в налаштування 
-      if(a1Up.active)                   // якщо довго нічого не відбувається то перехів д режим сну
-        Animate(&a1Up);
-      else if(a1Down.active)
-        Animate(&a1Down);
-      else if (a2Up.active)
-        Animate(&a2Up);
-      else if (a2Down.active)
-        Animate(&a2Down);
-      else if (a3DUp.active)
-        Animate(&a3DUp);
-      else if (a3Down.active)
-        Animate(&a3Down);
-      else
+                                        // якщо довго нічого не відбувається то перехів д режим сну
+      if(config.AnimationChar == 0)     // Тип анімації символів, показуємо або 0:00 або динамічну анімацію завантаження
       {
-        a1Up.delay = 200;
-        a1Up.active = true;
-        a1Down.delay = 100;
-        a1Down.active = true;
-        
-        a2Up.delay = 200;
-        a2Up.active = true;
-        a2Down.delay = 100;
-        a2Down.active = true;
-        
-        a3DUp.delay = 200;
-        a3DUp.active = true;
-        a3Down.delay = 100;
-        a3Down.active = true;
+        if(Millis - lastMillis_LimitFPS >= 200)
+        {
+          lastMillis_LimitFPS = Millis;
+          ledprintt(0xFF, 0xC0, 0xC0, 0xC0);
+        }
       }
-      if(isPlaying)
+      else {
+        if(a1Up.active)                   
+          Animate(&a1Up);
+        else if(a1Down.active)
+          Animate(&a1Down);
+        else if (a2Up.active)
+          Animate(&a2Up);
+        else if (a2Down.active)
+          Animate(&a2Down);
+        else if (a3DUp.active)
+          Animate(&a3DUp);
+        else if (a3Down.active)
+          Animate(&a3Down);
+        else
+        {
+          a1Up.active = true;
+          a1Down.active = true;
+          
+          a2Up.active = true;
+          a2Down.active = true;
+          
+          a3DUp.active = true;
+          a3Down.active = true;
+        }
+      }
+      
+      if(config.AnimationPoint == 0)    // Тип анімації крапок, або не показуємо, або блимає, або завжди горить
+        blinkState = false;
+      if(config.AnimationPoint == 1)
+      {
+        if(Millis - lastMillis_Blink >= 500)
+        {
+          lastMillis_Blink = Millis;
+          blinkState = !blinkState;
+        }
+      }
+      if(config.AnimationPoint == 2)
+       blinkState = true;
+      
+      if(blinkState)
+        CLEAR_BIT(R[1], 0x80);
+      else
+        SET_BIT(R[1], 0x80);
+      
+      if(isPlaying) // виммикаємо мелодію на всякий випадок!!!
         StopMelody();
       
       break;
