@@ -25,9 +25,7 @@ void Init_GPIO(void)
   SET_BIT(RCC->APB2ENR, RCC_APB2ENR_IOPAEN); // Clocking PORT_A
   SET_BIT(RCC->APB2ENR, RCC_APB2ENR_IOPBEN); // Clocking PORT_B
   //---------------------------------------------------------------------------------------------------------------------
-  CLEAR_BIT(GPIOA->CRL, GPIO_CRL_MODE3);         // MODE3 = 00 (вхід)
-  CLEAR_BIT(GPIOA->CRL, GPIO_CRL_CNF3_0);         // CNF3 = 10 (вхід з підтяжкою)
-  SET_BIT(GPIOA->CRL, GPIO_CRL_CNF3_1);         // 10: Input with pull-up / pull-down
+  MODIFY_REG(GPIOA->CRL, GPIO_CRL_MODE3_Msk | GPIO_CRL_CNF3_Msk, GPIO_CRL_CNF3_1); // MODE = 00 (вхід) | CNF = 10: Input with pull-up / pull-down
   SET_BIT(GPIOA->ODR, GPIO_ODR_ODR3);            // Підтяжка до Vcc через ODR
   // ==== Прив’язка EXTI3 до PA3 ====
   CLEAR_BIT(AFIO->EXTICR[0], AFIO_EXTICR1_EXTI3); // Очистити EXTICR1 для EXTI3
@@ -40,7 +38,17 @@ void Init_GPIO(void)
   NVIC_EnableIRQ(EXTI3_IRQn);                    // Дозвіл у системному контролері
   NVIC_SetPriority(EXTI3_IRQn, 1);               // Пріоритет, якщо потрібно
   //---------------------------------------------------------------------------------------------------------------------
-  // Init PB8-15 MODE 11 CNF 01
+  MODIFY_REG(GPIOA->CRL,                                                          // MODE = 00 (вхід) | CNF = 10: Input with pull-up / pull-down
+           GPIO_CRL_MODE4_Msk | GPIO_CRL_CNF4_Msk |
+           GPIO_CRL_MODE5_Msk | GPIO_CRL_CNF5_Msk |
+           GPIO_CRL_MODE6_Msk | GPIO_CRL_CNF6_Msk,
+           
+           GPIO_CRL_CNF4_1 |
+           GPIO_CRL_CNF5_1 |
+           GPIO_CRL_CNF6_1);
+  SET_BIT(GPIOA->ODR, GPIO_ODR_ODR4 |GPIO_ODR_ODR5 | GPIO_ODR_ODR6 );            // Підтяжка до Vcc через ODR
+  //---------------------------------------------------------------------------------------------------------------------
+  // Init PB8-15 MODE 11: Output mode, max speed 50 MHz. CNF 01: General purpose output Open-drain
   SET_BIT(GPIOB->CRH, 
               GPIO_CRH_MODE15_1 | GPIO_CRH_MODE15_0
             | GPIO_CRH_MODE14_1 | GPIO_CRH_MODE14_0
@@ -53,6 +61,7 @@ void Init_GPIO(void)
   // Init PB8-15  ODR 11111111
   CLEAR_REG(GPIOB->ODR);
   SET_BIT(GPIOB->ODR, GPIO_ODR_ODR8 | GPIO_ODR_ODR9 | GPIO_ODR_ODR10 | GPIO_ODR_ODR11 | GPIO_ODR_ODR12 | GPIO_ODR_ODR13 | GPIO_ODR_ODR14 | GPIO_ODR_ODR15); 
+  //---------------------------------------------------------------------------------------------------------------------
 }
 
 #define TIM_EnableIT_UPDATE(TIMx) SET_BIT(TIMx->DIER, TIM_DIER_UIE)
@@ -151,7 +160,9 @@ void Init(void){
   TIM4_Init();
 }
 void GetResult(Time* timeGame, Time* timeResult);
+uint16_t map_simple(uint16_t x, uint16_t in_max, uint16_t out_max);
 uint8_t status = 0;
+uint8_t statusSettings = 0;
 Time timeGame = {
 .Second =0,
 .partSecond =0,
@@ -163,13 +174,21 @@ Time timeResult = {
 .IsWin = false
 };
 
+Config tempConfig = {
+    .Brightness =     0,
+    .Difficulty =     0,
+    .AnimationChar =  0,
+    .AnimationPoint = 0,
+    .ShowNull = 0
+};
+
 // анімація
 Animation a1Down = { .frames = anim1, .frameCount = 6,  .frameCurrent = 0, .lastMillis = 0, .delayBase = 100, .repetCount = 10, .repetCurrent = 0, .delayStep =  10, .active = true, .endPausa = true}; // затухаюча
 Animation a1Up =   { .frames = anim1, .frameCount = 6,  .frameCurrent = 0, .lastMillis = 0, .delayBase = 200, .repetCount = 10, .repetCurrent = 0, .delayStep = -10, .active = true, .endPausa = true}; // прискорююча
 Animation a2Down=  { .frames = anim2, .frameCount = 8,  .frameCurrent = 0, .lastMillis = 0, .delayBase = 100, .repetCount = 10, .repetCurrent = 0, .delayStep =  10, .active = true, .endPausa = true}; // затухаюча
 Animation a2Up =   { .frames = anim2, .frameCount = 8,  .frameCurrent = 0, .lastMillis = 0, .delayBase = 200, .repetCount = 10, .repetCurrent = 0, .delayStep = -10, .active = true, .endPausa = true}; // прискорююча
-Animation a3Down = { .frames = anim3, .frameCount = 12, .frameCurrent = 0, .lastMillis = 0, .delayBase = 50,  .repetCount = 10, .repetCurrent = 0, .delayStep =  10, .active = true, .endPausa = true}; // затухаюча
-Animation a3DUp =  { .frames = anim3, .frameCount = 12, .frameCurrent = 0, .lastMillis = 0, .delayBase = 150, .repetCount = 10, .repetCurrent = 0, .delayStep = -10, .active = true, .endPausa = true}; // прискорююча
+Animation a3Down = { .frames = anim3, .frameCount = 12, .frameCurrent = 0, .lastMillis = 0, .delayBase = 70,  .repetCount = 10, .repetCurrent = 0, .delayStep =  10, .active = true, .endPausa = true}; // затухаюча
+Animation a3DUp =  { .frames = anim3, .frameCount = 12, .frameCurrent = 0, .lastMillis = 0, .delayBase = 170, .repetCount = 10, .repetCurrent = 0, .delayStep = -10, .active = true, .endPausa = true}; // прискорююча
 
 volatile uint32_t lastMillis_LimitFPS = 0;              //для обмеження частоти оновлення цифр при грі
 volatile uint32_t lastMillis_Blink = 0;                 //для блимання цифр при програші
@@ -192,7 +211,10 @@ int main()
         if(Millis - lastMillis_LimitFPS >= 200)
         {
           lastMillis_LimitFPS = Millis;
-          ledprintt(0xFF, 0xC0, 0xC0, 0xC0);
+          if(config.ShowNull)
+            ledprintt(0xC0, 0xC0, 0xC0, 0xC0);
+          else
+            ledprintt(0xFF, 0xC0, 0xC0, 0xC0);
         }
       }
       else {
@@ -219,6 +241,7 @@ int main()
           a3DUp.active = true;
           a3Down.active = true;
         }
+        
       }
       
       if(config.AnimationPoint == 0)    // Тип анімації крапок, або не показуємо, або блимає, або завжди горить
@@ -232,7 +255,7 @@ int main()
         }
       }
       if(config.AnimationPoint == 2)
-       blinkState = true;
+        blinkState = true;
       
       if(blinkState)
         CLEAR_BIT(R[1], 0x80);
@@ -241,6 +264,17 @@ int main()
       
       if(isPlaying) // виммикаємо мелодію на всякий випадок!!!
         StopMelody();
+      
+      if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR4) && Millis - lastMillis_debounce > 500)
+      {
+        tempConfig.AnimationChar = config.AnimationChar;
+        tempConfig.AnimationPoint = config.AnimationPoint;
+        tempConfig.Brightness = config.Brightness;
+        tempConfig.Difficulty = config.Difficulty;
+        tempConfig.ShowNull = config.ShowNull;
+        lastMillis_debounce = Millis;
+        status = 3;
+      }
       
       break;
     case 1:                             // ГРА, бачимо таймер з налічуваними секундами і інкрементуємо його
@@ -286,8 +320,117 @@ int main()
         status = 0;
       }
       break;
-    case 3:                             // НАЛАШУТВАННЯ яскравості і складності гри (сюди можна потрапити лише з режиму очікування або результату і тут своє меню )
-      break;
+    case 3:                             // НАЛАШУТВАННЯ яскравості і складності гри (сюди можна потрапити лише з режиму очікування і тут своє меню )
+      {
+        uint8_t tempConvertValue = 0;
+        switch (statusSettings)
+        {
+        case 0:  
+          tempConvertValue = AnimationConvertOut(&tempConfig);
+          ledprintt(0x88,0xFF,0xFF,CharToHex(tempConvertValue));
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR6) && Millis - lastMillis_debounce > 300)
+          {
+            lastMillis_debounce = Millis;
+            if(tempConvertValue<4)
+              tempConvertValue++;
+            AnimationConvertIn(tempConvertValue, &tempConfig);
+          }
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR5) && Millis - lastMillis_debounce > 300)
+          {
+            lastMillis_debounce = Millis;
+            if(tempConvertValue>=1)
+              tempConvertValue--;
+            AnimationConvertIn(tempConvertValue, &tempConfig);
+          }
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR4) && Millis - lastMillis_debounce > 500)
+          {
+            lastMillis_debounce = Millis;
+            statusSettings = 1;
+          }
+          break;
+        case 1:
+          tempConvertValue =  map_simple(tempConfig.Brightness, 1999, 100);
+          ledprintt(0x83,CharToHex(tempConvertValue%1000/100),CharToHex(tempConvertValue%100/10),CharToHex(tempConvertValue%10));
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR6) && Millis - lastMillis_debounce > 3)
+          {
+            lastMillis_debounce = Millis;
+            if(tempConfig.Brightness<1999)
+              tempConfig.Brightness++;
+          }
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR5) && Millis - lastMillis_debounce > 3)
+          {
+            lastMillis_debounce = Millis;
+            if(tempConfig.Brightness>=201)
+              tempConfig.Brightness--;
+          }
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR4) && Millis - lastMillis_debounce > 500)
+          {
+            lastMillis_debounce = Millis;
+            statusSettings = 2;
+          }
+          break;
+        case 2:
+          ledprintt(0xA1,CharToHex(tempConfig.Difficulty%1000/100),CharToHex(tempConfig.Difficulty%100/10),CharToHex(tempConfig.Difficulty%10));
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR6) && Millis - lastMillis_debounce > 100)
+          {
+            lastMillis_debounce = Millis;
+            if(tempConfig.Difficulty<127)
+              tempConfig.Difficulty++;
+          }
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR5) && Millis - lastMillis_debounce > 100)
+          {
+            lastMillis_debounce = Millis;
+            if(tempConfig.Difficulty>=1)
+              tempConfig.Difficulty--;
+          }
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR4) && Millis - lastMillis_debounce > 500)
+          {
+            lastMillis_debounce = Millis;
+            statusSettings = 3;
+          }
+          break;
+        case 3:
+          ledprintt(0x92,0xFF, 0xFF, CharToHex(tempConfig.ShowNull%10));
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR6) && Millis - lastMillis_debounce > 100)
+          {
+            lastMillis_debounce = Millis;
+            if(tempConfig.ShowNull==0)
+              tempConfig.ShowNull=1;
+          }
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR5) && Millis - lastMillis_debounce > 100)
+          {
+            lastMillis_debounce = Millis;
+            if(tempConfig.ShowNull==1)
+              tempConfig.ShowNull=0;
+          }
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR4) && Millis - lastMillis_debounce > 500)
+          {
+            lastMillis_debounce = Millis;
+            statusSettings = 4;
+          }
+          break;
+        case 4:
+          if(tempConfig.AnimationChar != config.AnimationChar || tempConfig.AnimationPoint != config.AnimationPoint ||
+             tempConfig.Brightness != config.Brightness || tempConfig.Difficulty != config.Difficulty || tempConfig.ShowNull != config.ShowNull)
+          {
+            config.AnimationChar = tempConfig.AnimationChar;
+            config.AnimationPoint = tempConfig.AnimationPoint;
+            config.Brightness = tempConfig.Brightness;
+            config.Difficulty = tempConfig.Difficulty;
+            config.ShowNull = tempConfig.ShowNull;
+            
+            ledprintt(0x92,0x88,0xC1,0x86);
+            Delay_MilliSecond(2000);
+            ledprintt(0xFF,0xFF,0xFF,0xFF);
+            Flash_WriteConfig(&config);
+          }
+          lastMillis_debounce = Millis;
+          statusSettings = 0;
+          status = 0;
+          break;
+        }
+        break;
+      }
     }
   } 
 }
@@ -304,8 +447,7 @@ void GetResult(Time* timeGame, Time* timeResult)
   }
   else
   {
-     uint16_t mask = (1 << (config.Difficulty)) - 1;
-     uint16_t temp_partSecond = timeResult->partSecond & ~mask;
+     uint16_t temp_partSecond = timeResult->partSecond & ~config.Difficulty;
      if(temp_partSecond == 0) // перемога
      {
        timeResult->partSecond = 0;
@@ -320,6 +462,12 @@ void GetResult(Time* timeGame, Time* timeResult)
      }   
   }
 }
+
+uint16_t map_simple(uint16_t x, uint16_t in_max, uint16_t out_max)
+{
+    return (uint32_t)x * out_max / in_max;
+}
+
 
 void EXTI3_IRQHandler(void)
 {

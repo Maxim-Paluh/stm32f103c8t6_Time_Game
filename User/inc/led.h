@@ -9,6 +9,7 @@
 extern uint8_t R[4];
 //--------------------------------------
 void segchar (void);
+uint8_t CharToHex(uint8_t Char);
 void ledprint(uint16_t number);
 void ledprinttime(Time *time);
 void ledprintf(float number, uint8_t alignment);

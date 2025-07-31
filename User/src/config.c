@@ -1,7 +1,10 @@
 #include "stm32f1xx.h"
 #include "config.h"
 
-/*
+/* Brightness
+0-1999 де 0 min Brightness 1999 max Brightness
+*/
+/* Difficulty
 ╔════════════╤═════════════════════╤════════════════╤════════════════╤════════════════╗
 ║ Difficulty │     Bitmask         │ Window (ticks) │ Error (ticks)  │ Error (ms)     ║
 ╟────────────┼─────────────────────┼────────────────┼────────────────┼────────────────╢
@@ -13,27 +16,59 @@
 ║     5      │ 0b00011111          │      32        │      32        │     3.2 ms     ║
 ║     6      │ 0b00111111          │      64        │      64        │     6.4 ms     ║
 ║     7      │ 0b01111111          │     128        │     128        │    12.8 ms     ║
-║     8      │ 0b11111111          │     256        │     256        │    25.6 ms     ║
-║     9      │ 0b0001_1111_1111    │     512        │     512        │    51.2 ms     ║
-║    10      │ 0b0011_1111_1111    │    1024        │    1024        │   102.4 ms     ║
-║    11      │ 0b0111_1111_1111    │    2048        │    2048        │   204.8 ms     ║
-║    12      │ 0b1111_1111_1111    │    4096        │    4096        │   409.6 ms     ║
 ╚════════════╧═════════════════════╧════════════════╧════════════════╧════════════════╝
-
-Notes:
-- 1 tick = 0.1 ms (10,000 ticks per second)
-- mask = (1 << Difficulty) - 1
-- window = mask + 1 → range where (partSecond & mask) == 0
 */
-
 
 Config config = {
     .Brightness =     0,
     .Difficulty =     0,
-    .AnimationChar =  1,
-    .AnimationPoint = 2
+    .AnimationChar =  0,
+    .AnimationPoint = 0,
+    .ShowNull = 0
 };
 
+uint8_t AnimationConvertOut(Config* animationConfig)
+{
+  if(animationConfig->AnimationChar == 0 && animationConfig->AnimationPoint == 1) // Цифри 00:00 або 0:00 з моргаючою крапкою
+    return 0;
+  if(animationConfig->AnimationChar == 0 && animationConfig->AnimationPoint == 2) // Цифри 00:00 або 0:00 з постійно увімкнутою крапкою
+    return 1;
+  if(animationConfig->AnimationChar == 1 && animationConfig->AnimationPoint == 0) // анімація завантаження з вимкнутою крапкою // по замовчуванню
+    return 2;
+   if(animationConfig->AnimationChar == 1 && animationConfig->AnimationPoint == 1) // анімація завантаження з моргаючою крапкою
+    return 3;
+   if(animationConfig->AnimationChar == 1 && animationConfig->AnimationPoint == 2) // анімація завантаження з постійно увімкнутою крапкою
+    return 4;
+  return 2;
+}
+
+void AnimationConvertIn(uint8_t animation, Config* animationConfig)
+{
+  switch (animation)
+  {
+  case 0:
+    animationConfig->AnimationChar = 0; animationConfig->AnimationPoint = 1;
+    break;
+  case 1:
+    animationConfig->AnimationChar = 0; animationConfig->AnimationPoint = 2;
+    break;
+  case 2:
+    animationConfig->AnimationChar = 1; animationConfig->AnimationPoint = 0;
+    break;
+  case 3:
+    animationConfig->AnimationChar = 1; animationConfig->AnimationPoint = 1;
+    break;
+  case 4:
+    animationConfig->AnimationChar = 1; animationConfig->AnimationPoint = 2;
+    break;
+  default:
+    animationConfig->AnimationChar = 1; animationConfig->AnimationPoint = 0;
+    break;  
+  }
+}
+
+
+//------------------------------------------------------------------------------
 static void Flash_Unlock(void) {
     if (FLASH->CR & FLASH_CR_LOCK) {
         FLASH->KEYR = FLASH_KEY1;
@@ -62,37 +97,48 @@ static void Flash_WriteWord(uint32_t address, uint32_t data) {
     CLEAR_BIT(FLASH->CR, FLASH_CR_PG);
 }
 
-static void Flash_WriteConfig(const Config* cfg) {
+void Flash_WriteConfig(const Config* cfg) {
+    __disable_irq();         // 🔒 Вимкнути всі глобальні переривання
     Flash_Unlock();
     Flash_ErasePage(FLASH_CONFIG_ADDR);
 
-    Flash_WriteWord(FLASH_CONFIG_ADDR, (cfg->Brightness));
-    Flash_WriteWord(FLASH_CONFIG_ADDR + 4, (cfg->Difficulty));
-    Flash_WriteWord(FLASH_CONFIG_ADDR + 8, CONFIG_SIGNATURE);
+    Flash_WriteWord(FLASH_CONFIG_ADDR, (cfg->AnimationChar));
+    Flash_WriteWord(FLASH_CONFIG_ADDR + 4, (cfg->AnimationPoint));
+    Flash_WriteWord(FLASH_CONFIG_ADDR + 8, (cfg->Brightness));
+    Flash_WriteWord(FLASH_CONFIG_ADDR + 12, (cfg->Difficulty));
+    Flash_WriteWord(FLASH_CONFIG_ADDR + 16, (cfg->ShowNull));
+    Flash_WriteWord(FLASH_CONFIG_ADDR + 20, CONFIG_SIGNATURE);
 
     Flash_Lock();
+    __enable_irq();          // 🔓 Увімкнути всі глобальні переривання
 }
 
 static void Flash_ReadConfig(Config* cfg) {
-    cfg->Brightness    = *(volatile uint32_t*)(FLASH_CONFIG_ADDR);
-    cfg->Difficulty  = *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 4);
-    cfg->signature     = *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 8);
+    cfg->AnimationChar    =     *(volatile uint32_t*)(FLASH_CONFIG_ADDR);
+    cfg->AnimationPoint  =      *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 4);
+    cfg->Brightness  =          *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 8);
+    cfg->Difficulty =           *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 12);
+    cfg->ShowNull =             *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 16);
+    cfg->Signature     =        *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 20);
 }
 
 void Config_Init(void)
 {
     Flash_ReadConfig(&config);
 
-    if (config.signature != CONFIG_SIGNATURE)
+    if (config.Signature != CONFIG_SIGNATURE)
     {
+        config.AnimationChar = 1;
+        config.AnimationPoint = 0;
         config.Brightness   = 1999;
-        config.Difficulty = 7;
-        config.signature    = CONFIG_SIGNATURE;
+        config.Difficulty = 63;
+        config.ShowNull = 0;
+        config.Signature    = CONFIG_SIGNATURE;
 
         Flash_WriteConfig(&config);
     }
 }
-
+//------------------------------------------------------------------------------
 
 
    

@@ -6,7 +6,6 @@
 extern const uint8_t anim1[][4];
 extern const uint8_t anim2[][4];
 extern const uint8_t anim3[][4];
-extern const uint8_t anim4[][4];
 
 typedef struct {
     const uint8_t (*frames)[4];  // кадри анімації

@@ -98,7 +98,10 @@ void ledprinttime(Time *time)
 {
   uint8_t sec = time->Second%100/10;
     if(sec==0)
-      R[0]= 0xFF;
+      if(config.ShowNull)
+        R[0]= 0xC0;
+      else
+        R[0]= 0xFF;
     else
       R[0] =  CharToHex(sec);
     R[1] =  CharToHex((time->Second%10)+10);
