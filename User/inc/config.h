@@ -11,6 +11,7 @@ typedef struct {
     uint16_t Brightness;        // яскравість
     uint16_t Difficulty;        // складність
     uint16_t ShowNull;          // показувати 0 на початку поки секунд менше 10
+    uint16_t SleepAfter;        // заснути через вказану кількість хвилин
     uint32_t Signature;         // маркер автентичності наприклад 0xA5A5A5A5
 } Config;
 

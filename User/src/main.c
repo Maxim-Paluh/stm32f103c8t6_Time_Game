@@ -32,8 +32,13 @@ void Init_GPIO(void)
   SET_BIT(AFIO->EXTICR[0], AFIO_EXTICR1_EXTI3_PA);// Прив'язка EXTI3 → PA3
   // ==== Налаштування EXTI ====
   SET_BIT(EXTI->IMR, EXTI_IMR_MR3);              // Дозвіл маски переривання
-  SET_BIT(EXTI->FTSR, EXTI_FTSR_TR3);            // Спадний фронт (falling edge)
-  CLEAR_BIT(EXTI->RTSR, EXTI_RTSR_TR3);          // Висхідний фронт не потрібен
+  //----------------------------------------------------------------------------------------------- для нормально розімкнутої кнопки
+  //  SET_BIT(EXTI->FTSR, EXTI_FTSR_TR3);            // Спадний фронт (falling edge)
+  //  CLEAR_BIT(EXTI->RTSR, EXTI_RTSR_TR3);          // Висхідний фронт не потрібен
+   //----------------------------------------------------------------------------------------------- для нормально замкнутої кнопки
+  SET_BIT(EXTI->RTSR, EXTI_RTSR_TR3);            // Висхідний фронт (rising edge) — натискання
+  CLEAR_BIT(EXTI->FTSR, EXTI_FTSR_TR3);          // Спадний фронт не потрібен
+   //-----------------------------------------------------------------------------------------------
   // ==== NVIC дозволи ====
   NVIC_EnableIRQ(EXTI3_IRQn);                    // Дозвіл у системному контролері
   NVIC_SetPriority(EXTI3_IRQn, 1);               // Пріоритет, якщо потрібно
@@ -106,7 +111,7 @@ static void TIM2_Init(void) // Led switch
   NVIC_EnableIRQ(TIM2_IRQn);
   
   WRITE_REG(TIM2->PSC, 3599);
-  WRITE_REG(TIM2->ARR, 99);
+  WRITE_REG(TIM2->ARR, 69);
   
   TIM_EnableIT_UPDATE(TIM2);
   TIM_EnableCounter(TIM2);
@@ -197,6 +202,16 @@ volatile uint32_t lastMillis_debounce = 0;              // від брязкод
 
 bool blinkState = true; // змінна котра треба для миготіння якщо гравець програв
 
+bool IsSleep = false;
+
+static uint32_t pressStart_UP = 0;
+static uint32_t pressStart_DOWN = 0;
+static uint32_t lastAdjustMillis = 0;
+
+#define INITIAL_ADJUST_INTERVAL 300
+#define FAST_ADJUST_INTERVAL    10
+#define HOLD_DURATION_THRESHOLD 1000
+
 int main()
 {
   Init();
@@ -204,8 +219,14 @@ int main()
   {
     switch (status)
     {
-    case 0:                             // ОЧІКУВАННЯ початку гри або переходу в налаштування 
-                                        // якщо довго нічого не відбувається то перехів д режим сну
+    case 0:                             // ОЧІКУВАННЯ початку гри або переходу в налаштування, якщо довго нічого не відбувається то перехів в режим сну
+      if (config.SleepAfter && (Millis - lastMillis_WaitMenu >= config.SleepAfter * 60000)) {
+        ledprintt(0xFF, 0xFF, 0xFF, 0xFF); // вимкнути дисплей
+        IsSleep = true;
+        continue;
+      }
+
+      
       if(config.AnimationChar == 0)     // Тип анімації символів, показуємо або 0:00 або динамічну анімацію завантаження
       {
         if(Millis - lastMillis_LimitFPS >= 200)
@@ -258,20 +279,21 @@ int main()
         blinkState = true;
       
       if(blinkState)
-        CLEAR_BIT(R[1], 0x80);
+        CLEAR_BIT(R[2], 0x80);
       else
-        SET_BIT(R[1], 0x80);
+        SET_BIT(R[2], 0x80);
       
       if(isPlaying) // виммикаємо мелодію на всякий випадок!!!
         StopMelody();
       
-      if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR4) && Millis - lastMillis_debounce > 500)
+      if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR4) && Millis - lastMillis_debounce > 500) // перевіряємо чи не написнута кнопка переходу в режим налаштувань
       {
         tempConfig.AnimationChar = config.AnimationChar;
         tempConfig.AnimationPoint = config.AnimationPoint;
         tempConfig.Brightness = config.Brightness;
         tempConfig.Difficulty = config.Difficulty;
         tempConfig.ShowNull = config.ShowNull;
+        tempConfig.SleepAfter = config.SleepAfter;
         lastMillis_debounce = Millis;
         status = 3;
       }
@@ -410,14 +432,56 @@ int main()
           }
           break;
         case 4:
+          ledprintt(0x89,
+                    CharToHex(tempConfig.SleepAfter % 1000 / 100),
+                    CharToHex(tempConfig.SleepAfter % 100 / 10),
+                    CharToHex(tempConfig.SleepAfter % 10));
+          
+          // ↑ КНОПКА ВГОРУ
+          if (!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR6)) {
+            if (pressStart_UP == 0) pressStart_UP = Millis;
+            
+            uint32_t interval = (Millis - pressStart_UP > HOLD_DURATION_THRESHOLD) ?
+          FAST_ADJUST_INTERVAL : INITIAL_ADJUST_INTERVAL;
+          
+          if (Millis - lastAdjustMillis >= interval && tempConfig.SleepAfter < 720) {
+            tempConfig.SleepAfter++;
+            lastAdjustMillis = Millis;
+          }
+          } else {
+            pressStart_UP = 0; // скидаємо, якщо кнопка не натиснута
+          }
+          
+          // ↓ КНОПКА ВНИЗ
+          if (!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR5)) {
+            if (pressStart_DOWN == 0) pressStart_DOWN = Millis;
+            
+            uint32_t interval = (Millis - pressStart_DOWN > HOLD_DURATION_THRESHOLD) ?
+          FAST_ADJUST_INTERVAL : INITIAL_ADJUST_INTERVAL;
+          
+          if (Millis - lastAdjustMillis >= interval && tempConfig.SleepAfter >= 1) {
+            tempConfig.SleepAfter--;
+            lastAdjustMillis = Millis;
+          }
+          } else {
+            pressStart_DOWN = 0;
+          }
+          if(!READ_BIT(GPIOA->IDR, GPIO_IDR_IDR4) && Millis - lastMillis_debounce > 500)
+          {
+            lastMillis_debounce = Millis;
+            statusSettings = 5;
+          }
+          break;
+        case 5:
           if(tempConfig.AnimationChar != config.AnimationChar || tempConfig.AnimationPoint != config.AnimationPoint ||
-             tempConfig.Brightness != config.Brightness || tempConfig.Difficulty != config.Difficulty || tempConfig.ShowNull != config.ShowNull)
+             tempConfig.Brightness != config.Brightness || tempConfig.Difficulty != config.Difficulty || tempConfig.ShowNull != config.ShowNull || tempConfig.SleepAfter != config.SleepAfter)
           {
             config.AnimationChar = tempConfig.AnimationChar;
             config.AnimationPoint = tempConfig.AnimationPoint;
             config.Brightness = tempConfig.Brightness;
             config.Difficulty = tempConfig.Difficulty;
             config.ShowNull = tempConfig.ShowNull;
+            config.SleepAfter = tempConfig.SleepAfter;
             
             ledprintt(0x92,0x88,0xC1,0x86);
             Delay_MilliSecond(2000);
@@ -426,6 +490,7 @@ int main()
           }
           lastMillis_debounce = Millis;
           statusSettings = 0;
+          lastMillis_WaitMenu = Millis;
           status = 0;
           break;
         }
@@ -441,7 +506,7 @@ void GetResult(Time* timeGame, Time* timeResult)
   timeResult->Second = timeGame->Second;
   timeResult->partSecond = timeGame->partSecond;
   
-  if(timeResult->Second!=3)
+  if(timeResult->Second!=10)
   {
     return;
   }
@@ -482,10 +547,40 @@ void EXTI3_IRQHandler(void)
       
       switch (status)
       {
-      case 0: timeGame.Second=0; timeGame.partSecond=0; TIM3->CNT = 0;                  status = 1;    break;
-      case 1: lastMillis_WaitMenu = Millis; GetResult(&timeGame, &timeResult);          status = 2;    break;
-      case 2: lastMillis_WaitMenu = Millis;                                             status = 0;    break;
-      case 3:                                                                           break;  //ігноруємо в цей режим потрапляємо іншою кнопкою і інших режимів                                                                
+      case 0:
+        lastMillis_WaitMenu = Millis; 
+        if(IsSleep)
+        {
+          a1Up.active = true;
+          a1Down.active = true;
+          
+          a2Up.active = true;
+          a2Down.active = true;
+          
+          a3DUp.active = true;
+          a3Down.active = true;
+          
+          IsSleep = false;
+        }
+        else
+        {
+        timeGame.Second=0; 
+        timeGame.partSecond=0; 
+        TIM3->CNT = 0;            
+        status = 1; 
+        }
+      break;
+      case 1: 
+        lastMillis_WaitMenu = Millis; 
+        GetResult(&timeGame, &timeResult);                                  
+        status = 2;    
+        break;
+      case 2: 
+        lastMillis_WaitMenu = Millis;                                                                     
+        status = 0;    
+        break;
+      case 3: 
+        break;  //ігноруємо в цей режим потрапляємо іншою кнопкою в режимі очікування                                                        
       }
       
     }

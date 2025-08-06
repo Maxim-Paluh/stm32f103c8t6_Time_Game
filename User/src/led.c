@@ -104,8 +104,8 @@ void ledprinttime(Time *time)
         R[0]= 0xFF;
     else
       R[0] =  CharToHex(sec);
-    R[1] =  CharToHex((time->Second%10)+10);
-    R[2] = CharToHex(time->partSecond%10000/1000);
+    R[1] =  CharToHex(time->Second%10);
+    R[2] = CharToHex((time->partSecond%10000/1000)+10);
     R[3] = CharToHex(time->partSecond%1000/100);
 }
 

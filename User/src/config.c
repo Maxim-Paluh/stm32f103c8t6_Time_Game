@@ -107,7 +107,8 @@ void Flash_WriteConfig(const Config* cfg) {
     Flash_WriteWord(FLASH_CONFIG_ADDR + 8, (cfg->Brightness));
     Flash_WriteWord(FLASH_CONFIG_ADDR + 12, (cfg->Difficulty));
     Flash_WriteWord(FLASH_CONFIG_ADDR + 16, (cfg->ShowNull));
-    Flash_WriteWord(FLASH_CONFIG_ADDR + 20, CONFIG_SIGNATURE);
+    Flash_WriteWord(FLASH_CONFIG_ADDR + 20, (cfg->SleepAfter));
+    Flash_WriteWord(FLASH_CONFIG_ADDR + 24, CONFIG_SIGNATURE);
 
     Flash_Lock();
     __enable_irq();          // 🔓 Увімкнути всі глобальні переривання
@@ -119,7 +120,8 @@ static void Flash_ReadConfig(Config* cfg) {
     cfg->Brightness  =          *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 8);
     cfg->Difficulty =           *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 12);
     cfg->ShowNull =             *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 16);
-    cfg->Signature     =        *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 20);
+    cfg->SleepAfter =           *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 20);
+    cfg->Signature     =        *(volatile uint32_t*)(FLASH_CONFIG_ADDR + 24);
 }
 
 void Config_Init(void)
@@ -133,6 +135,7 @@ void Config_Init(void)
         config.Brightness   = 1999;
         config.Difficulty = 63;
         config.ShowNull = 0;
+        config.SleepAfter = 5;
         config.Signature    = CONFIG_SIGNATURE;
 
         Flash_WriteConfig(&config);
